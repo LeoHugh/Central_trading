@@ -4,10 +4,10 @@
 
 ## 技术栈
 
-- **运行时**: Node.js
-- **HTTP 框架**: Express
+- **运行时**: Java 17
+- **框架**: Spring Boot 3.2+
 - **数据库**: MySQL 8.0+
-- **消息队列**: Apache Kafka (KafkaJS)
+- **消息队列**: Apache Kafka (Spring Kafka)
 
 ## 快速开始
 
@@ -15,26 +15,21 @@
 
 ```bash
 cd Central_trading
-npm install
+mvn clean install -DskipTests
 ```
 
 ### 2. 配置环境变量
 
-```bash
-cp .env.example .env
-# 编辑 .env，配置数据库连接和 Kafka 地址
-```
+修改 `src/main/resources/application.yml` 或通过环境变量配置（如 `DB_HOST`, `DB_PASSWORD`, `KAFKA_BROKERS` 等）。
 
 ### 3. 初始化数据库
 
-```bash
-mysql -u root -p < database/schema.sql
-```
+项目启动时会自动执行 `src/main/resources/schema.sql`，无需手动初始化。
 
 ### 4. 启动
 
 ```bash
-npm run dev
+mvn spring-boot:run
 ```
 
 系统启动后监听 `http://localhost:8082`。
@@ -58,22 +53,23 @@ npm run dev
 
 ### 指令过期
 
-收盘后（默认 15:00）自动将当日未完全成交的委托标记为 EXPIRED，释放冻结的资金和持仓。
+收盘后自动将当日未完全成交的委托标记为 EXPIRED，释放冻结的资金和持仓。
 
 ## REST API
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| `GET` | `/api/central-trading/health` | 健康检查 |
 | `POST` | `/api/central-trading/orders` | 提交委托 |
-| `POST` | `/api/central-trading/orders/:id/cancel` | 撤销委托 |
-| `GET` | `/api/central-trading/orders/:id/result` | 查询成交结果 |
+| `POST` | `/api/central-trading/orders/{id}/cancel` | 撤销委托 |
+| `GET` | `/api/central-trading/orders/{id}/result` | 查询成交结果 |
 | `GET` | `/api/central-trading/stocks?keyword=` | 查询股票行情 |
-| `GET` | `/api/central-trading/stocks/:code` | 查询单只股票 |
-| `POST` | `/api/central-trading/admin/stocks/:code/suspend` | 暂停交易 |
-| `POST` | `/api/central-trading/admin/stocks/:code/resume` | 重启交易 |
-| `GET` | `/api/central-trading/admin/stocks/:code/orders` | 查看委托簿 |
-| `POST` | `/api/central-trading/admin/stocks/:code/price-limit` | 设置涨跌停 |
+| `GET` | `/api/central-trading/stocks/{code}` | 查询单只股票 |
+| `POST` | `/api/central-trading/admin/stocks/{code}/suspend` | 暂停交易 |
+| `POST` | `/api/central-trading/admin/stocks/{code}/resume` | 重启交易 |
+| `GET` | `/api/central-trading/admin/stocks/{code}/orders` | 查看委托簿 |
+| `POST` | `/api/central-trading/admin/stocks/{code}/price-limit` | 设置涨跌停 |
+| `POST` | `/api/central-trading/admin/price-limits/refresh` | 刷新涨跌停缓存 |
+| `GET` | `/api/central-trading/admin/kafka/status` | 获取 Kafka 状态 |
 
 ## Kafka Topics
 
@@ -85,37 +81,25 @@ npm run dev
 | `client.stock.quote` | 出站 | 推送行情数据 |
 | `client.trade.report` | 出站 | 推送成交反馈 |
 | `client.order.report` | 出站 | 推送委托状态 |
+| `webinfo.trade.report` | 出站 | 推送给 Web 端展示的成交报告 |
 
 ## 目录结构
 
 ```
 Central_trading/
-├── database/schema.sql          # 数据库建表脚本
-├── server/
-│   ├── app.js                   # Express 入口
-│   ├── db.js                    # MySQL 连接池
-│   ├── engine/
-│   │   ├── order-book.js        # 委托簿（买卖队列）
-│   │   ├── matching-engine.js   # 撮合引擎
-│   │   └── price-limiter.js     # 涨跌停计算
-│   ├── kafka/
-│   │   ├── index.js             # Kafka 初始化
-│   │   ├── producer.js          # 消息发送
-│   │   └── consumer.js          # 消息消费
-│   ├── services/
-│   │   ├── order-service.js     # 委托生命周期
-│   │   ├── trade-service.js     # 成交处理
-│   │   ├── stock-service.js     # 行情服务
-│   │   └── account-service.js   # 外部账户系统调用
-│   ├── routes/
-│   │   ├── orders.js            # 委托 API
-│   │   ├── stocks.js            # 行情 API
-│   │   └── admin.js             # 管理 API
-│   ├── scheduler/
-│   │   └── expiry-job.js        # 指令过期任务
-│   └── utils/
-│       ├── constants.js         # 常量定义
-│       └── logger.js            # 日志工具
+├── src/main/resources/
+│   ├── schema.sql               # 数据库建表脚本
+│   └── application.yml          # Spring Boot 配置文件
+├── pom.xml                      # Maven 依赖配置
+├── src/main/java/com/trading/central/
+│   ├── CentralTradingApplication.java # Spring Boot 入口
+│   ├── controller/              # HTTP API 层 (Order, Stock, Admin)
+│   ├── engine/                  # 核心撮合逻辑 (MatchingEngine, OrderBook, PriceLimiter)
+│   ├── kafka/                   # 消息队列消费者和生产者
+│   ├── service/                 # 业务逻辑服务
+│   ├── scheduler/               # 定时任务 (ExpiryJob)
+│   ├── model/                   # 数据模型和 DTO
+│   └── util/                    # 工具类与常量
 ```
 
 ## 联调配置
@@ -133,4 +117,4 @@ location.reload();
 - **Kafka Broker** (`KAFKA_BROKERS`): 消息中间件
 - **MySQL** (`DB_HOST`): 持久化存储
 
-当外部服务不可用时，设置 `ACCOUNT_API_MOCK=true` 使用模拟模式。
+当外部服务不可用时，设置 `ACCOUNT_API_MOCK=true` (在 `application.yml` 中或环境变量配置) 使用模拟模式。另外可通过 `app.kafka.enabled=false` 禁用 Kafka。
