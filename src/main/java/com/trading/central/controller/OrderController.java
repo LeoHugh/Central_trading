@@ -2,6 +2,7 @@ package com.trading.central.controller;
 
 import com.trading.central.model.CancelCommandMsg;
 import com.trading.central.model.OrderCommandMsg;
+import com.trading.central.scheduler.ExpiryJob;
 import com.trading.central.service.OrderService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -9,12 +10,12 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 @RestController
@@ -23,10 +24,12 @@ public class OrderController {
 
     private final OrderService orderService;
     private final JdbcTemplate jdbcTemplate;
+    private final ExpiryJob expiryJob;
 
-    public OrderController(OrderService orderService, JdbcTemplate jdbcTemplate) {
+    public OrderController(OrderService orderService, JdbcTemplate jdbcTemplate, ExpiryJob expiryJob) {
         this.orderService = orderService;
         this.jdbcTemplate = jdbcTemplate;
+        this.expiryJob = expiryJob;
     }
 
     @PostMapping
@@ -144,6 +147,55 @@ public class OrderController {
         response.put("success", true);
         response.put("data", data);
 
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{orderId}/feedback")
+    public ResponseEntity<Map<String, Object>> getOrderFeedback(@PathVariable String orderId) {
+        Map<String, Object> feedback = orderService.buildOrderFeedback(orderId);
+        if (feedback == null) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "委托不存在");
+            return ResponseEntity.status(404).body(response);
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("data", feedback);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{orderId}/feedback")
+    public ResponseEntity<Map<String, Object>> pushOrderFeedback(@PathVariable String orderId) {
+        Map<String, Object> feedback = orderService.pushOrderFeedback(orderId);
+        if (feedback == null) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "委托不存在");
+            return ResponseEntity.status(404).body(response);
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("message", "订单反馈已发送");
+        response.put("data", feedback);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/timeout")
+    public ResponseEntity<Map<String, Object>> timeoutOrders(@RequestBody(required = false) Map<String, Object> body) {
+        LocalDate tradeDate = LocalDate.now();
+        if (body != null && body.get("tradeDate") != null) {
+            tradeDate = LocalDate.parse(body.get("tradeDate").toString());
+        }
+
+        Map<String, Object> summary = expiryJob.expireOrders(tradeDate);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("message", "超时业务处理完成");
+        response.put("data", summary);
         return ResponseEntity.ok(response);
     }
 }
