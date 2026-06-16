@@ -82,6 +82,9 @@ public class MatchingEngine {
             OrderEntry buyOrder = Side.BUY.name().equals(newOrder.getSide()) ? newOrder : counter;
             OrderEntry sellOrder = Side.SELL.name().equals(newOrder.getSide()) ? newOrder : counter;
 
+            refreshOrderStatus(newOrder);
+            refreshOrderStatus(counter);
+
             log.info("[撮合成交] {} 价格={} 数量={} 买方={} 卖方={}", newOrder.getStockCode(), tradePrice, tradeQty, buyOrder.getOrderId(), sellOrder.getOrderId());
 
             if (onTrade != null) {
@@ -91,14 +94,11 @@ public class MatchingEngine {
             result.trades.add(new TradeInfo(buyOrder, sellOrder, tradePrice, tradeQty));
 
             if (counter.getRemainingQuantity() <= 0) {
-                counter.setStatus(OrderStatus.TRADED.name());
                 if (Side.BUY.name().equals(newOrder.getSide())) {
                     book.popTopSell();
                 } else {
                     book.popTopBuy();
                 }
-            } else {
-                counter.setStatus(OrderStatus.PART_TRADED.name());
             }
         }
 
@@ -114,6 +114,16 @@ public class MatchingEngine {
 
         result.finalStatus = newOrder.getStatus();
         return result;
+    }
+
+    private void refreshOrderStatus(OrderEntry order) {
+        if (order.getRemainingQuantity() <= 0) {
+            order.setStatus(OrderStatus.TRADED.name());
+        } else if (order.getFilledQuantity() > 0) {
+            order.setStatus(OrderStatus.PART_TRADED.name());
+        } else {
+            order.setStatus(OrderStatus.ACCEPTED.name());
+        }
     }
 
     public OrderEntry cancelOrderInBook(String orderId, String stockCode) {
