@@ -36,11 +36,11 @@ public class AccountService {
         try {
             ResponseEntity<Map> response = restTemplate.postForEntity(url, body, Map.class);
             if (!response.getStatusCode().is2xxSuccessful()) {
-                log.error("[AccountService] {} å¤±è´¥: {}", path, response.getStatusCode());
+                log.error("[AccountService] {} failed: {}", path, response.getStatusCode());
                 throw new RuntimeException("Account API error: " + response.getStatusCode());
             }
         } catch (Exception e) {
-            log.error("[AccountService] {} è°ƒç”¨å¼‚å¸¸: {}", path, e.getMessage());
+            log.error("[AccountService] {} call error: {}", path, e.getMessage());
             throw new RuntimeException("Account API call failed", e);
         }
     }
@@ -115,9 +115,9 @@ public class AccountService {
 
     public String getAccountName(String accountId) {
         if (isMock) {
-            // MockÄ£Ê½ÏÂÖ±½Ó·µ»ØÕË»§IDºó4Î»×÷ÎªÃû³Æ
+            // Mockæ¨¡å¼ä¸‹ç›´æŽ¥è¿”å›žè´¦æˆ·IDåŽ4ä½ä½œä¸ºåç§°
             String suffix = accountId.length() >= 4 ? accountId.substring(accountId.length() - 4) : accountId;
-            return "ÓÃ»§" + suffix;
+            return "ç”¨æˆ·" + suffix;
         }
 
         String url = apiBase + "/api/fund-accounts/" + accountId + "/name";
@@ -134,9 +134,9 @@ public class AccountService {
                 }
             }
         } catch (Exception e) {
-            log.warn("[AccountService] »ñÈ¡ÕË»§Ãû³ÆÊ§°Ü: {}£¬Ê¹ÓÃÄ¬ÈÏÖµ", accountId, e);
+            log.warn("[AccountService] èŽ·å–è´¦æˆ·åç§°å¤±è´¥: {}ï¼Œä½¿ç”¨é»˜è®¤å€¼", accountId, e);
         }
-        // ²éÑ¯Ê§°ÜÊ±·µ»ØÕË»§ID±¾Éí×÷Îª½µ¼¶·½°¸
-        return "ÓÃ»§" + (accountId.length() >= 4 ? accountId.substring(accountId.length() - 4) : accountId);
+        // æŸ¥è¯¢å¤±è´¥æ—¶è¿”å›žè´¦æˆ·IDæœ¬èº«ä½œä¸ºé™çº§æ–¹æ¡ˆ
+        return "ç”¨æˆ·" + (accountId.length() >= 4 ? accountId.substring(accountId.length() - 4) : accountId);
     }
 }
